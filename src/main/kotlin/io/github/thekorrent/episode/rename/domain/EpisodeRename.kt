@@ -1,10 +1,13 @@
 package io.github.thekorrent.episode.rename.domain
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.google.common.eventbus.Subscribe
 import io.github.thekorrent.episode.rename.EpisodeRenamePlugin.Companion.config
+import io.github.thekorrent.episode.rename.EpisodeRenamePlugin.Companion.pluginDataManager
 import io.github.thekorrent.episode.rename.model.From.CATEGORY
 import io.github.thekorrent.episode.rename.model.From.SAVEPATH
 import moe.shizuki.korrent.bittorrent.event.QBittorrentTorrentDownloadedEvent
+import moe.shizuki.korrent.objectMapper
 import moe.shizuki.korrent.plugin.annotation.KorrentEvent
 import java.io.File
 
@@ -29,6 +32,10 @@ class EpisodeRename {
 
         if (config.rename.tags.isNotEmpty() && config.rename.tags.intersect(tags.toSet()).isEmpty()) return
 
+        val offsets = objectMapper.readValue(File(pluginDataManager.pluginDataFolder, "offsets.json"), object : TypeReference<Map<String, Int>>() {})
+
+        val offset = offsets[category] ?: 0
+
         val extension = file.name.split(".").last()
 
         val series = when (config.rename.from) {
@@ -41,7 +48,7 @@ class EpisodeRename {
             SAVEPATH -> parseSeasonFromSavePath(savePath)
         } ?: return
 
-        val episode = parseEpisode(file.name) ?: return
+        val episode = parseEpisode(file.name, offset) ?: return
 
         val episodePart = episode.split(".")
 
@@ -74,10 +81,14 @@ class EpisodeRename {
         client.renameTorrentFile(hash, file.name, renamedFileName).execute()
     }
 
-    private fun parseEpisode(name: String): String? {
+    private fun parseEpisode(name: String, offset: Int): String? {
         val regex = config.rename.regex.toRegex()
 
-        return regex.find(name)?.value
+        val value = regex.find(name)?.value
+
+        val part = value?.split(".") ?: return null
+
+        return (part.first().toInt() + offset).toString() + if (part.size > 1) part.last() else ""
     }
 
     private fun parseSeriesFromCategory(category: List<String>): String? {
