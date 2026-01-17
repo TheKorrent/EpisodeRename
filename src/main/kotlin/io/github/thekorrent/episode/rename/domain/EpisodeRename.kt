@@ -88,7 +88,7 @@ class EpisodeRename {
 
         val part = value?.split(".") ?: return null
 
-        return (part.first().toInt() + offset).toString() + if (part.size > 1) part.last() else ""
+        return (part.first().toInt() + offset).toString() + if (part.size > 1) "." + part.last() else ""
     }
 
     private fun parseSeriesFromCategory(category: List<String>): String? {
